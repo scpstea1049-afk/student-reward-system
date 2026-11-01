@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>國小課堂加分與獎勵互動系統</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              yellow: '#FFD166',
+              green: '#06D6A0',
+              blue: '#118AB2',
+              red: '#EF476F',
+              purple: '#8338EC',
+              bg: '#F8F9FA'
+            }
+          },
+          fontFamily: {
+            sans: ['"Noto Sans TC"', 'sans-serif'],
+            display: ['"Fredoka"', '"Noto Sans TC"', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #f0f4f8;
+      background-image: radial-gradient(#e2e8f0 1.5px, transparent 1.5px);
+      background-size: 24px 24px;
+    }
+    .card-bounce { transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .card-bounce:hover { transform: translateY(-4px) scale(1.02); }
+    .card-bounce:active { transform: translateY(1px) scale(0.98); }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col justify-between">
+
+  <!-- TEACHER AUTH MODAL (登入 / 建立教師帳號) -->
+  <div id="auth-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl space-y-6 text-center border border-slate-100">
+      <div>
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 mx-auto flex items-center justify-center text-white text-3xl shadow-lg shadow-amber-200 mb-3">
+          <i class="fa-solid fa-user-lock"></i>
+        </div>
+        <h2 id="auth-title" class="font-black text-2xl text-slate-800 tracking-tight font-display">教師身份驗證</h2>
+        <p id="auth-desc" class="text-xs text-slate-500 mt-1">請輸入教師帳號密碼以解鎖「星星班級加分王」</p>
+      </div>
+
+      <!-- 登入表單 -->
+      <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4 text-left">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">教師帳號</label>
+          <div class="relative">
+            <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" id="auth-username" placeholder="請輸入帳號 (預設 teacher)" value="teacher" class="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">登入密碼</label>
+          <div class="relative">
+            <i class="fa-solid fa-key absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="password" id="auth-password" placeholder="請輸入密碼 (預設 1234)" value="1234" class="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium">
+          </div>
+        </div>
+
+        <div id="auth-error-msg" class="hidden text-xs text-rose-500 font-bold bg-rose-50 p-2.5 rounded-xl border border-rose-200 text-center">
+          ⚠️ 帳號或密碼輸入錯誤，請重新確認！
+        </div>
+
+        <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-amber-200 flex items-center justify-center gap-2 transition-all card-bounce">
+          <i class="fa-solid fa-right-to-bracket"></i> 進入班級管理頁面
+        </button>
+
+        <!-- 新增：建立教師帳號按鈕 -->
+        <button type="button" onclick="showRegisterForm()" class="w-full bg-white hover:bg-amber-50 text-amber-600 border-2 border-amber-300 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition-all card-bounce">
+          <i class="fa-solid fa-user-plus"></i> 建立教師帳號
+        </button>
+      </form>
+
+      <!-- 新增：建立教師帳號表單 -->
+      <form id="register-form" onsubmit="handleRegister(event)" class="hidden space-y-4 text-left">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">設定教師帳號</label>
+          <div class="relative">
+            <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" id="reg-username" placeholder="至少 3 個字元" class="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">設定密碼</label>
+          <div class="relative">
+            <i class="fa-solid fa-key absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="password" id="reg-password" placeholder="至少 4 個字元" class="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">再次輸入密碼</label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="password" id="reg-password2" placeholder="請再輸入一次密碼" class="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium">
+          </div>
+        </div>
+
+        <div id="reg-error-msg" class="hidden text-xs text-rose-500 font-bold bg-rose-50 p-2.5 rounded-xl border border-rose-200 text-center"></div>
+
+        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-all card-bounce">
+          <i class="fa-solid fa-circle-check"></i> 確認建立帳號
+        </button>
+        <button type="button" onclick="showLoginForm()" class="w-full text-slate-500 hover:text-slate-700 font-bold py-2 text-xs flex items-center justify-center gap-1">
+          <i class="fa-solid fa-arrow-left"></i> 返回登入
+        </button>
+      </form>
+
+      <div class="pt-2 border-t border-slate-100">
+        <p class="text-[11px] text-slate-400">💡 預設測試帳號：<span class="font-bold text-slate-600">teacher</span> / 密碼：<span class="font-bold text-slate-600">1234</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header / Navigation Bar -->
+  <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-white text-2xl shadow-md shadow-amber-200">
+          <i class="fa-solid fa-star"></i>
+        </div>
+        <div>
+          <h1 class="font-black text-xl text-slate-800 tracking-tight font-display flex items-center gap-2">
+            星星班級加分王
+            <span class="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-0.5 rounded-full border border-amber-300">課堂獎勵系統</span>
+          </h1>
+        </div>
+      </div>
+
+      <!-- Class Switcher -->
+      <div class="hidden md:flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl">
+        <i class="fa-solid fa-school text-amber-600 text-base"></i>
+        <select id="class-select" onchange="switchClass(this.value)" class="bg-transparent font-bold text-amber-900 text-sm focus:outline-none cursor-pointer">
+        </select>
+        <button onclick="openCreateClassModal()" title="建立新班級" class="text-amber-700 hover:text-amber-900 ml-1 p-1 hover:bg-amber-100 rounded-lg transition-colors">
+          <i class="fa-solid fa-plus-circle text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center gap-1 sm:gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-sm font-bold">
+        <button onclick="switchTab('students')" id="tab-students" class="tab-btn px-3 py-1.5 rounded-lg text-amber-600 bg-white shadow-sm flex items-center gap-2 transition-all">
+          <i class="fa-solid fa-graduation-cap text-lg"></i> <span class="hidden sm:inline">學生管理</span>
+        </button>
+        <button onclick="switchTab('groups')" id="tab-groups" class="tab-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-all">
+          <i class="fa-solid fa-people-group text-lg"></i> <span class="hidden sm:inline">小組競賽</span>
+        </button>
+        <button onclick="switchTab('shop')" id="tab-shop" class="tab-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-all">
+          <i class="fa-solid fa-store text-lg"></i> <span class="hidden sm:inline">獎勵兌換</span>
+        </button>
+        <button onclick="switchTab('tools')" id="tab-tools" class="tab-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-all">
+          <i class="fa-solid fa-wand-magic-sparkles text-lg"></i> <span class="hidden sm:inline">課堂工具/AI評語</span>
+        </button>
+      </nav>
+
+      <!-- Global Actions -->
+      <div class="flex items-center gap-2">
+        <button onclick="openCreateClassModal()" class="md:hidden bg-indigo-500 hover:bg-indigo-600 text-white font-bold p-2.5 rounded-xl text-sm shadow-md shadow-indigo-100 flex items-center gap-1" title="建班級">
+          <i class="fa-solid fa-school text-base"></i>
+        </button>
+        <button onclick="openClassActionModal()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3.5 py-2 rounded-xl text-xs sm:text-sm shadow-md shadow-amber-200 flex items-center gap-2 transition-all">
+          <i class="fa-solid fa-bullhorn text-base"></i> 全班獎懲
+        </button>
+        <button onclick="resetClassPoints()" title="重置全班分數" class="text-slate-400 hover:text-rose-500 p-2 rounded-xl hover:bg-slate-100 transition-all">
+          <i class="fa-solid fa-rotate-left text-lg"></i>
+        </button>
+        <button onclick="logoutTeacher()" title="教師登出/鎖定系統" class="text-slate-400 hover:text-indigo-600 p-2 rounded-xl hover:bg-slate-100 transition-all">
+          <i class="fa-solid fa-right-from-bracket text-lg"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+
+    <!-- TAB 1: 學生點數管理 -->
+    <section id="view-students" class="space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="md:hidden flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl w-full sm:w-auto">
+            <i class="fa-solid fa-school text-amber-600 text-sm"></i>
+            <span class="text-xs font-bold text-slate-500">班級:</span>
+            <select id="mobile-class-select" onchange="switchClass(this.value)" class="bg-transparent font-bold text-amber-900 text-sm focus:outline-none flex-1">
+            </select>
+          </div>
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" id="student-search" oninput="renderStudents()" placeholder="搜尋座號或姓名..." class="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 w-48 sm:w-64">
+          </div>
+          <select id="group-filter" onchange="renderStudents()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium">
+            <option value="all">全部小組</option>
+            <option value="1">第一組</option>
+            <option value="2">第二組</option>
+            <option value="3">第三組</option>
+            <option value="4">第四組</option>
+            <option value="5">第五組</option>
+            <option value="6">第六組</option>
+          </select>
+          <select id="sort-order" onchange="renderStudents()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 font-medium">
+            <option value="id">按座號排序</option>
+            <option value="score-desc">分數高到低</option>
+            <option value="score-asc">分數低到高</option>
+          </select>
+          <!-- 科目選擇 -->
+          <div class="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 rounded-xl">
+            <i class="fa-solid fa-book-open text-indigo-500 text-sm"></i>
+            <span class="text-xs font-bold text-indigo-400">科目:</span>
+            <select id="subject-select" onchange="changeSubject(this.value)" class="bg-transparent font-bold text-indigo-900 text-sm focus:outline-none cursor-pointer"></select>
+            <button onclick="addSubject()" title="新增科目" class="text-indigo-600 hover:bg-indigo-100 rounded-lg px-1"><i class="fa-solid fa-circle-plus"></i></button>
+            <button onclick="removeSubject()" title="刪除目前科目" class="text-slate-400 hover:text-rose-500 rounded-lg px-1"><i class="fa-solid fa-trash-can text-xs"></i></button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="openAddStudentModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-md shadow-emerald-100 flex items-center gap-2 transition-all">
+            <i class="fa-solid fa-user-plus"></i> 新增學生
+          </button>
+        </div>
+      </div>
+
+      <div id="students-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
+    </section>
+
+    <!-- TAB 2: 小組競賽 -->
+    <section id="view-groups" class="hidden space-y-6">
+      <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-black font-display flex items-center gap-2">
+            <i class="fa-solid fa-trophy text-amber-300 text-3xl"></i> 小組合作競賽區
+          </h2>
+          <p class="text-blue-100 text-sm mt-1">累積全組成員得分，培養團隊合作榮譽感！</p>
+        </div>
+        <button onclick="rewardAllGroups()" class="bg-amber-400 hover:bg-amber-300 text-slate-900 font-black px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 transition-all">
+          <i class="fa-solid fa-gift text-xl"></i> 給全體小組表現加分
+        </button>
+      </div>
+
+      <div id="groups-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </section>
+
+    <!-- TAB 3: 獎勵兌換商店 -->
+    <section id="view-shop" class="hidden space-y-6">
+      <div class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-gift text-pink-500 text-2xl"></i> 班級星光兌換商店
+          </h2>
+          <p class="text-xs text-slate-500">學生累積星星點數，可兌換各種課堂福利與特別權利！</p>
+        </div>
+        <button onclick="openAddRewardModal()" class="bg-pink-500 hover:bg-pink-600 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-md shadow-pink-100 flex items-center gap-2">
+          <i class="fa-solid fa-plus text-base"></i> 新增獎勵卡
+        </button>
+      </div>
+
+      <div id="rewards-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
+    </section>
+
+    <!-- TAB 4: 課堂實用工具 & AI 評語 -->
+    <section id="view-tools" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Tool 1: 課堂計時器 -->
+        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b pb-3">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2 text-lg">
+              <i class="fa-solid fa-stopwatch text-amber-500 text-2xl"></i> 課堂倒數計時器
+            </h3>
+            <span id="timer-status" class="text-xs bg-slate-100 px-2.5 py-1 rounded-full font-semibold text-slate-500">準備中</span>
+          </div>
+          <div class="text-center py-6">
+            <div id="timer-display" class="font-display font-black text-6xl tracking-wider text-slate-800">05:00</div>
+          </div>
+          <div class="flex items-center justify-center gap-2">
+            <button onclick="setTimerPreset(1)" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-600">1分鐘</button>
+            <button onclick="setTimerPreset(3)" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-600">3分鐘</button>
+            <button onclick="setTimerPreset(5)" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 rounded-lg text-xs font-bold text-amber-800">5分鐘</button>
+            <button onclick="setTimerPreset(10)" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-600">10分鐘</button>
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button id="timer-start-btn" onclick="toggleTimer()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md shadow-amber-200 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-play text-base"></i> 開始計時
+            </button>
+            <button onclick="resetTimer()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold px-4 py-2.5 rounded-xl text-sm">重設</button>
+          </div>
+        </div>
+
+        <!-- Tool 2: 課堂隨機抽籤卡 -->
+        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b pb-3">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2 text-lg">
+              <i class="fa-solid fa-dice text-purple-500 text-2xl"></i> 幸運課堂抽籤機
+            </h3>
+            <span class="text-xs bg-purple-50 text-purple-600 font-bold px-2.5 py-1 rounded-full">回答問題/抽任務</span>
+          </div>
+          <div class="text-center py-6 my-auto">
+            <div id="random-student-display" class="font-black text-4xl text-purple-600 bg-purple-50 border-2 border-dashed border-purple-200 rounded-2xl py-8 px-4 animate-none">
+              ? 點擊開始抽籤
+            </div>
+          </div>
+          <button onclick="pickRandomStudent()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl text-sm shadow-md shadow-purple-200 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-shuffle text-base"></i> 隨機抽出一位學生
+          </button>
+        </div>
+
+        <!-- Tool 3: AI 課堂激勵評語生成器 -->
+        <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b pb-3">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2 text-lg">
+              <i class="fa-solid fa-robot text-sky-500 text-2xl"></i> AI 課堂樂觀評語助手
+            </h3>
+            <span class="text-xs bg-sky-50 text-sky-600 font-bold px-2.5 py-1 rounded-full">Gemini Powered</span>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">選擇學生</label>
+              <select id="ai-student-select" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 font-medium"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">今日課堂重點觀察</label>
+              <select id="ai-tag-select" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 font-medium">
+                <option value="熱情參與課堂討論，發言非常踴躍">積極發言讚許</option>
+                <option value="專注完成小組任務，展現極佳領導與團隊力">小組合作優異</option>
+                <option value="上課秩序良好，認真聽講且勤作筆記">專注秩序佳</option>
+                <option value="雖然遇到困難但持續努力不放棄，漸入佳境">再接再厲鼓勵（需持續加油）</option>
+              </select>
+            </div>
+
+            <button onclick="generateAIFeedback()" id="ai-generate-btn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md shadow-sky-100 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-sparkles"></i> 一鍵生成親師激勵評語
+            </button>
+          </div>
+
+          <div id="ai-result-box" class="hidden mt-3 p-3 bg-sky-50 border border-sky-200 rounded-xl text-xs text-slate-700 relative">
+            <p id="ai-result-text" class="leading-relaxed"></p>
+            <button onclick="copyAIFeedback()" class="mt-2 text-sky-700 hover:text-sky-900 font-bold text-[11px] underline flex items-center gap-1">
+              <i class="fa-solid fa-copy"></i> 複製評語文字
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400 font-medium flex flex-col sm:flex-row justify-between items-center gap-2">
+      <p>星星課堂獎勵系統 &copy; 2026 - 專為國小班級營造正向學習氛圍設計</p>
+      <div class="flex gap-4">
+        <span class="text-emerald-600"><i class="fa-solid fa-circle text-[8px] mr-1"></i>正向強化模式</span>
+        <span class="text-amber-600"><i class="fa-solid fa-bolt text-[8px] mr-1"></i>即時課堂回饋</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- MODAL: 快速給分面板 -->
+  <div id="feedback-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 transform transition-all scale-100">
+
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center gap-3">
+          <div id="modal-avatar" class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 font-black text-xl flex items-center justify-center">01</div>
+          <div>
+            <h3 id="modal-title" class="font-bold text-slate-800 text-lg">王小明</h3>
+            <p id="modal-subtitle" class="text-xs text-slate-500">當前分數：<span id="modal-current-score" class="font-bold text-amber-500">15</span> ★ ・ 科目：<span id="modal-subject" class="font-bold text-indigo-500"></span></p>
+          </div>
+        </div>
+        <button onclick="closeModal('feedback-modal')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <h4 class="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-plus"></i> 表現優良 (加分 +1 ~ +5)
+          </h4>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <button onclick="applyScore(1, '積極發言', 'reward')" class="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-left card-bounce">
+              <div class="font-bold text-emerald-800 text-xs">🙋‍♂️ 🙋‍♀️ 積極發言</div>
+              <div class="text-[10px] text-emerald-600 mt-0.5">+1 星星</div>
+            </button>
+            <button onclick="applyScore(2, '答對難題', 'reward')" class="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-left card-bounce">
+              <div class="font-bold text-emerald-800 text-xs">💡 答對難題</div>
+              <div class="text-[10px] text-emerald-600 mt-0.5">+2 星星</div>
+            </button>
+            <button onclick="applyScore(1, '秩序良好', 'reward')" class="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-left card-bounce">
+              <div class="font-bold text-emerald-800 text-xs">🤫 專注坐正</div>
+              <div class="text-[10px] text-emerald-600 mt-0.5">+1 星星</div>
+            </button>
+            <button onclick="applyScore(2, '主動熱心', 'reward')" class="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-left card-bounce">
+              <div class="font-bold text-emerald-800 text-xs">🧹 協助服務</div>
+              <div class="text-[10px] text-emerald-600 mt-0.5">+2 星星</div>
+            </button>
+            <button onclick="applyScore(3, '團隊合作', 'reward')" class="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-left card-bounce">
+              <div class="font-bold text-emerald-800 text-xs">🤝 完美協作</div>
+              <div class="text-[10px] text-emerald-600 mt-0.5">+3 星星</div>
+            </button>
+            <button onclick="applyScore(5, '極致卓越', 'reward')" class="p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl text-left card-bounce">
+              <div class="font-bold text-amber-800 text-xs">🏆 大滿貫表現</div>
+              <div class="text-[10px] text-amber-600 mt-0.5">+5 星星</div>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-heart-pulse"></i> 再加油提醒（提醒溫柔調整）
+          </h4>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <button onclick="applyScore(-1, '分心提醒', 'encourage')" class="p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl text-left card-bounce">
+              <div class="font-bold text-amber-900 text-xs">💭 上課分心</div>
+              <div class="text-[10px] text-amber-700 mt-0.5">-1 提醒</div>
+            </button>
+            <button onclick="applyScore(-1, '影響他人', 'encourage')" class="p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl text-left card-bounce">
+              <div class="font-bold text-amber-900 text-xs">🗣️ 擅自說話</div>
+              <div class="text-[10px] text-amber-700 mt-0.5">-1 提醒</div>
+            </button>
+            <button onclick="applyScore(-1, '未帶用品', 'encourage')" class="p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl text-left card-bounce">
+              <div class="font-bold text-amber-900 text-xs">🎒 忘帶學用品</div>
+              <div class="text-[10px] text-amber-700 mt-0.5">-1 提醒</div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t flex items-center gap-2">
+        <input type="number" id="custom-score-input" placeholder="自訂分數 (如: 3 或 -2)" class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <button onclick="applyCustomScore()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-xl text-sm">套用自訂</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: 新增學生 -->
+  <div id="add-student-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+          <i class="fa-solid fa-user-plus text-emerald-500"></i> 新增學生成員
+        </h3>
+        <button onclick="closeModal('add-student-modal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">座號 (編號)</label>
+          <input type="number" id="new-student-id" placeholder="例如: 1" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-400">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">學生姓名</label>
+          <input type="text" id="new-student-name" placeholder="例如: 陳大明" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-400">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">所屬小組</label>
+          <select id="new-student-group" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-400">
+            <option value="1">第一組</option>
+            <option value="2">第二組</option>
+            <option value="3">第三組</option>
+            <option value="4">第四組</option>
+            <option value="5">第五組</option>
+            <option value="6">第六組</option>
+          </select>
+        </div>
+      </div>
+
+      <button onclick="saveNewStudent()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow-md shadow-emerald-100 text-sm">確認新增</button>
+    </div>
+  </div>
+
+  <!-- MODAL: 新增獎勵卡 -->
+  <div id="add-reward-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+          <i class="fa-solid fa-gift text-pink-500"></i> 新增兌換獎勵項目
+        </h3>
+        <button onclick="closeModal('add-reward-modal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">獎勵卡名稱</label>
+          <input type="text" id="new-reward-title" placeholder="例如：擔任一日班長" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-pink-400">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">代表 Emoji 圖示</label>
+          <input type="text" id="new-reward-icon" placeholder="例如：👑 或 ✏️" value="🎁" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-pink-400">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">所需星星數</label>
+          <input type="number" id="new-reward-cost" placeholder="例如：20" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-pink-400">
+        </div>
+      </div>
+
+      <button onclick="saveNewReward()" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-2.5 rounded-xl shadow-md shadow-pink-100 text-sm">新增獎勵</button>
+    </div>
+  </div>
+
+  <!-- MODAL: 全班性獎懲 -->
+  <div id="class-action-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+          <i class="fa-solid fa-bullhorn text-amber-500"></i> 全班統一加減分
+        </h3>
+        <button onclick="closeModal('class-action-modal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-500">此操作將同步調整全班所有同學的點數：</p>
+
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="applyClassScore(1, '全班專注認真')" class="p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-emerald-800 font-bold text-xs flex flex-col items-center gap-1">
+          <span class="text-xl">🌟</span> 全班加 1 星
+        </button>
+        <button onclick="applyClassScore(2, '全班團隊任務達成')" class="p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-emerald-800 font-bold text-xs flex flex-col items-center gap-1">
+          <span class="text-xl">🚀</span> 全班加 2 星
+        </button>
+        <button onclick="applyClassScore(-1, '全班秩序待改善')" class="p-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl text-amber-900 font-bold text-xs flex flex-col items-center gap-1">
+          <span class="text-xl">🤫</span> 全班扣 1 星提醒
+        </button>
+        <button onclick="applyClassScore(3, '全班獲得課堂大獎')" class="p-3 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl text-amber-900 font-bold text-xs flex flex-col items-center gap-1">
+          <span class="text-xl">🎉</span> 全班加 3 星獎勵
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: 新建班級 -->
+  <div id="create-class-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+          <i class="fa-solid fa-school text-amber-500"></i> 新增/管理班級
+        </h3>
+        <button onclick="closeModal('create-class-modal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">班級名稱</label>
+          <input type="text" id="new-class-name" placeholder="例如：三年一班、四年二班" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-400">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">自動生成學生人數 (預設預建座號)</label>
+          <input type="number" id="new-class-count" placeholder="例如：25 (若填0則建立空班級)" value="15" min="0" max="50" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-400">
+          <p class="text-[11px] text-slate-400 mt-1">系統將自動產生 1~N 號預設學生名單，後續可自由修改姓名。</p>
+        </div>
+      </div>
+
+      <div class="pt-2 flex gap-2">
+        <button onclick="createNewClass()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl shadow-md shadow-amber-100 text-sm">確認建立班級</button>
+        <button onclick="deleteCurrentClass()" id="delete-class-btn" class="bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-3 py-2.5 rounded-xl text-xs border border-rose-200">刪除當前班級</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Synthesizer (Web Audio API) -->
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new AudioContext();
+      }
+    }
+
+    function playRewardSound() {
+      initAudio();
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc1.type = 'triangle';
+      osc2.type = 'sine';
+
+      osc1.frequency.setValueAtTime(523.25, now);
+      osc1.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15);
+
+      osc2.frequency.setValueAtTime(659.25, now);
+      osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.15);
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.3);
+      osc2.stop(now + 0.3);
+    }
+
+    function playEncourageSound() {
+      initAudio();
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(329.63, now);
+      osc.frequency.setValueAtTime(261.63, now + 0.15);
+
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.35);
+    }
+  </script>
+
+  <!-- Application Logic JS -->
+  <script>
+    // ===== Auth State =====
+    let isAuthenticated = false;
+    const ACCOUNTS_KEY = 'classroom_teacher_accounts';
+
+    function getTeacherAccounts() {
+      try {
+        return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function showRegisterForm() {
+      document.getElementById('login-form').classList.add('hidden');
+      document.getElementById('register-form').classList.remove('hidden');
+      document.getElementById('reg-error-msg').classList.add('hidden');
+      document.getElementById('auth-title').innerText = '建立教師帳號';
+      document.getElementById('auth-desc').innerText = '設定專屬帳號密碼，保護您的班級資料';
+    }
+
+    function showLoginForm() {
+      document.getElementById('register-form').classList.add('hidden');
+      document.getElementById('login-form').classList.remove('hidden');
+      document.getElementById('auth-title').innerText = '教師身份驗證';
+      document.getElementById('auth-desc').innerText = '請輸入教師帳號密碼以解鎖「星星班級加分王」';
+    }
+
+    function handleRegister(e) {
+      if (e) e.preventDefault();
+      const user = document.getElementById('reg-username').value.trim();
+      const pass = document.getElementById('reg-password').value;
+      const pass2 = document.getElementById('reg-password2').value;
+      const errBox = document.getElementById('reg-error-msg');
+
+      const showErr = (msg) => {
+        errBox.innerText = '⚠️ ' + msg;
+        errBox.classList.remove('hidden');
+        playEncourageSound();
+      };
+
+      const accounts = getTeacherAccounts();
+
+      if (user.length < 3) return showErr('帳號至少需要 3 個字元');
+      if (pass.length < 4) return showErr('密碼至少需要 4 個字元');
+      if (pass !== pass2) return showErr('兩次輸入的密碼不一致');
+      if (user === 'teacher' || accounts.some(a => a.username === user)) {
+        return showErr('此帳號已被使用，請換一個');
+      }
+
+      accounts.push({ username: user, password: pass });
+      localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+
+      ['reg-username', 'reg-password', 'reg-password2'].forEach(id => document.getElementById(id).value = '');
+      showLoginForm();
+      document.getElementById('auth-username').value = user;
+      document.getElementById('auth-password').value = pass;
+      playRewardSound();
+      alert('🎉 教師帳號建立成功！請按「進入班級管理頁面」登入。');
+    }
+
+    function handleLogin(e) {
+      if (e) e.preventDefault();
+      const user = document.getElementById('auth-username').value.trim();
+      const pass = document.getElementById('auth-password').value.trim();
+      const errorMsg = document.getElementById('auth-error-msg');
+
+      // 預設帳號 teacher / 1234，或已建立的教師帳號
+      const isDefault = (user === 'teacher' && pass === '1234');
+      const isRegistered = getTeacherAccounts().some(a => a.username === user && a.password === pass);
+
+      if (isDefault || isRegistered) {
+        isAuthenticated = true;
+        document.getElementById('auth-modal').classList.add('hidden');
+        errorMsg.classList.add('hidden');
+        playRewardSound();
+      } else {
+        errorMsg.classList.remove('hidden');
+        playEncourageSound();
+      }
+    }
+
+    function logoutTeacher() {
+      isAuthenticated = false;
+      document.getElementById('auth-password').value = '';
+      showLoginForm();
+      document.getElementById('auth-modal').classList.remove('hidden');
+    }
+
+    // ===== Initial Default Data =====
+    const defaultStudents = [
+      { id: 1, name: '陳小明', group: 1, score: 12, avatar: '👦' },
+      { id: 2, name: '林美玲', group: 1, score: 18, avatar: '👧' },
+      { id: 3, name: '張家豪', group: 1, score: 15, avatar: '👦' },
+      { id: 4, name: '黃子庭', group: 2, score: 20, avatar: '👧' },
+      { id: 5, name: '李威德', group: 2, score: 9, avatar: '👦' },
+      { id: 6, name: '吳佩珍', group: 2, score: 14, avatar: '👧' },
+      { id: 7, name: '趙冠宇', group: 3, score: 11, avatar: '👦' },
+      { id: 8, name: '蔡欣妤', group: 3, score: 16, avatar: '👧' },
+      { id: 9, name: '楊宗翰', group: 3, score: 13, avatar: '👦' },
+      { id: 10, name: '劉雅婷', group: 4, score: 22, avatar: '👧' },
+      { id: 11, name: '鄭博文', group: 4, score: 10, avatar: '👦' },
+      { id: 12, name: '謝佳蓉', group: 4, score: 17, avatar: '👧' }
+    ];
+
+    const defaultRewards = [
+      { id: 1, title: '擔任一日小班長', cost: 15, icon: '👑' },
+      { id: 2, title: '自由選擇座位卡', cost: 30, icon: '🪑' },
+      { id: 3, title: '指定作業減免一次', cost: 45, icon: '📝' },
+      { id: 4, title: '課堂自由閱讀10分鐘', cost: 20, icon: '📚' },
+      { id: 5, title: '兌換實體精美文具', cost: 25, icon: '✏️' },
+      { id: 6, title: '與老師同桌午餐', cost: 50, icon: '🍱' }
+    ];
+
+    // ===== Class Management State =====
+    let classesList = JSON.parse(localStorage.getItem('classroom_classes')) || ['三年一班', '三年二班'];
+    let currentClassName = localStorage.getItem('classroom_current_class') || '三年一班';
+
+    let students = [];
+    let rewards = [];
+    let selectedStudentId = null;
+
+    // Timer State
+    let timerInterval = null;
+    let timerSeconds = 300;
+    let isTimerRunning = false;
+
+    // ===== 科目管理 =====
+    const defaultSubjects = ['國語', '數學', '英語', '自然', '社會', '藝術', '體育'];
+    let subjects = JSON.parse(localStorage.getItem('classroom_subjects') || 'null') || defaultSubjects.slice();
+    let currentSubject = localStorage.getItem('classroom_current_subject') || subjects[0];
+    if (!subjects.includes(currentSubject)) currentSubject = subjects[0];
+
+    function renderSubjects() {
+      const sel = document.getElementById('subject-select');
+      if (!sel) return;
+      sel.innerHTML = '';
+      subjects.forEach(sub => {
+        const o = document.createElement('option');
+        o.value = sub; o.innerText = sub;
+        if (sub === currentSubject) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+    function changeSubject(sub) {
+      currentSubject = sub;
+      localStorage.setItem('classroom_current_subject', sub);
+      renderStudents();
+    }
+    function addSubject() {
+      const name = (prompt('請輸入新科目名稱（例如：閱讀、生活、社團）：') || '').trim();
+      if (!name) return;
+      if (subjects.includes(name)) return alert('此科目已存在！');
+      subjects.push(name);
+      localStorage.setItem('classroom_subjects', JSON.stringify(subjects));
+      changeSubject(name);
+      renderSubjects();
+    }
+    function removeSubject() {
+      if (subjects.length <= 1) return alert('至少需要保留一個科目！');
+      if (!confirm(`確定要刪除科目「${currentSubject}」嗎？\n（學生已累積的總星星與歷史紀錄不會被刪除）`)) return;
+      subjects = subjects.filter(x => x !== currentSubject);
+      localStorage.setItem('classroom_subjects', JSON.stringify(subjects));
+      changeSubject(subjects[0]);
+      renderSubjects();
+    }
+    document.addEventListener('DOMContentLoaded', renderSubjects);
+
+    window.onload = function() {
+      initClasses();
+      loadClassData(currentClassName);
+      renderStudents();
+      renderGroups();
+      renderRewards();
+      updateAIStudentDropdown();
+    };
+
+    function initClasses() {
+      const select = document.getElementById('class-select');
+      const mobileSelect = document.getElementById('mobile-class-select');
+      select.innerHTML = '';
+      mobileSelect.innerHTML = '';
+
+      classesList.forEach(cls => {
+        const opt1 = document.createElement('option');
+        opt1.value = cls;
+        opt1.innerText = cls;
+        if (cls === currentClassName) opt1.selected = true;
+        select.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = cls;
+        opt2.innerText = cls;
+        if (cls === currentClassName) opt2.selected = true;
+        mobileSelect.appendChild(opt2);
+      });
+    }
+
+    function switchClass(className) {
+      currentClassName = className;
+      localStorage.setItem('classroom_current_class', currentClassName);
+
+      initClasses();
+      loadClassData(currentClassName);
+      renderStudents();
+      renderGroups();
+      renderRewards();
+      updateAIStudentDropdown();
+    }
+
+    function loadClassData(clsName) {
+      const savedStudents = localStorage.getItem(`classroom_students_${clsName}`);
+      const savedRewards = localStorage.getItem(`classroom_rewards_${clsName}`);
+
+      students = savedStudents ? JSON.parse(savedStudents) : JSON.parse(JSON.stringify(defaultStudents));
+      rewards = savedRewards ? JSON.parse(savedRewards) : JSON.parse(JSON.stringify(defaultRewards));
+    }
+
+    function saveData() {
+      localStorage.setItem(`classroom_students_${currentClassName}`, JSON.stringify(students));
+      localStorage.setItem(`classroom_rewards_${currentClassName}`, JSON.stringify(rewards));
+      localStorage.setItem('classroom_classes', JSON.stringify(classesList));
+    }
+
+    function openCreateClassModal() {
+      document.getElementById('create-class-modal').classList.remove('hidden');
+    }
+
+    function createNewClass() {
+      const name = document.getElementById('new-class-name').value.trim();
+      const count = parseInt(document.getElementById('new-class-count').value) || 0;
+
+      if (!name) {
+        alert('請輸入班級名稱！');
+        return;
+      }
+
+      if (classesList.includes(name)) {
+        alert('此班級名稱已存在！');
+        return;
+      }
+
+      classesList.push(name);
+
+      const newClassStudents = [];
+      for (let i = 1; i <= count; i++) {
+        const groupNum = ((i - 1) % 6) + 1;
+        newClassStudents.push({
+          id: i,
+          name: `學生 ${i} 號`,
+          group: groupNum,
+          score: 0,
+          avatar: i % 2 === 0 ? '👧' : '👦'
+        });
+      }
+
+      localStorage.setItem(`classroom_students_${name}`, JSON.stringify(newClassStudents));
+      localStorage.setItem(`classroom_rewards_${name}`, JSON.stringify(defaultRewards));
+
+      currentClassName = name;
+      localStorage.setItem('classroom_current_class', currentClassName);
+      localStorage.setItem('classroom_classes', JSON.stringify(classesList));
+
+      document.getElementById('new-class-name').value = '';
+      closeModal('create-class-modal');
+
+      initClasses();
+      loadClassData(currentClassName);
+      renderStudents();
+      renderGroups();
+      renderRewards();
+      updateAIStudentDropdown();
+
+      alert(`🎉 班級「${name}」建立成功！`);
+    }
+
+    function deleteCurrentClass() {
+      if (classesList.length <= 1) {
+        alert('無法刪除，系統至少需要保留一個班級！');
+        return;
+      }
+
+      if (confirm(`確定要刪除當前班級「${currentClassName}」及其所有資料嗎？此操作無法恢復。`)) {
+        localStorage.removeItem(`classroom_students_${currentClassName}`);
+        localStorage.removeItem(`classroom_rewards_${currentClassName}`);
+
+        classesList = classesList.filter(c => c !== currentClassName);
+        currentClassName = classesList[0];
+        localStorage.setItem('classroom_current_class', currentClassName);
+        localStorage.setItem('classroom_classes', JSON.stringify(classesList));
+
+        closeModal('create-class-modal');
+        initClasses();
+        loadClassData(currentClassName);
+        renderStudents();
+        renderGroups();
+        renderRewards();
+        updateAIStudentDropdown();
+      }
+    }
+
+    function switchTab(tabName) {
+      const tabs = ['students', 'groups', 'shop', 'tools'];
+      tabs.forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-${t}`);
+        if (btn) {
+          btn.classList.remove('bg-white', 'shadow-sm', 'text-amber-600');
+          btn.classList.add('text-slate-600');
+        }
+      });
+
+      document.getElementById(`view-${tabName}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-${tabName}`);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-white', 'shadow-sm', 'text-amber-600');
+        activeBtn.classList.remove('text-slate-600');
+      }
+
+      if (tabName === 'groups') renderGroups();
+      if (tabName === 'students') renderStudents();
+    }
+
+    function renderStudents() {
+      const grid = document.getElementById('students-grid');
+      const searchVal = document.getElementById('student-search').value.trim().toLowerCase();
+      const groupFilter = document.getElementById('group-filter').value;
+      const sortOrder = document.getElementById('sort-order').value;
+
+      let filtered = [...students];
+
+      if (searchVal) {
+        filtered = filtered.filter(s =>
+          s.name.toLowerCase().includes(searchVal) || s.id.toString().includes(searchVal)
+        );
+      }
+
+      if (groupFilter !== 'all') {
+        filtered = filtered.filter(s => s.group === parseInt(groupFilter));
+      }
+
+      if (sortOrder === 'score-desc') {
+        filtered.sort((a, b) => b.score - a.score);
+      } else if (sortOrder === 'score-asc') {
+        filtered.sort((a, b) => a.score - b.score);
+      } else {
+        filtered.sort((a, b) => a.id - b.id);
+      }
+
+      grid.innerHTML = '';
+
+      filtered.forEach(student => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between card-bounce relative group';
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                ${student.id}號
+              </span>
+              <span class="text-[10px] font-bold text-slate-400">第 ${student.group} 組</span>
+            </div>
+            <div class="text-center my-2">
+              <div class="text-5xl mb-2">${student.avatar || '👦'}</div>
+              <h3 class="font-black text-slate-800 text-base">${student.name}</h3>
+            </div>
+          </div>
+
+          <div class="mt-3 pt-3 border-t border-slate-100 text-center">
+            <div class="flex items-center justify-center gap-1 font-display font-black text-2xl text-amber-500">
+              <i class="fa-solid fa-star text-amber-400 text-xl"></i>
+              <span>${student.score}</span>
+            </div>
+
+            <div class="mt-1 text-[11px] font-bold text-indigo-500">${currentSubject}：${(student.subjectScores || {})[currentSubject] || 0} 星</div>
+            <button onclick="openFeedbackModal(${student.id})" class="mt-2 w-full bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold py-1.5 rounded-xl text-xs flex items-center justify-center gap-1 transition-colors">
+              <i class="fa-solid fa-plus-minus text-sm"></i> 評定表現
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function renderGroups() {
+      const grid = document.getElementById('groups-grid');
+      grid.innerHTML = '';
+
+      const groupData = {};
+      for (let i = 1; i <= 6; i++) {
+        groupData[i] = { members: [], totalScore: 0 };
+      }
+
+      students.forEach(s => {
+        if (groupData[s.group]) {
+          groupData[s.group].members.push(s);
+          groupData[s.group].totalScore += s.score;
+        }
+      });
+
+      Object.keys(groupData).forEach(groupId => {
+        const group = groupData[groupId];
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between space-y-4';
+
+        const memberBadges = group.members.map(m => `
+          <span class="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-xl font-medium">
+            <span class="text-base">${m.avatar}</span> ${m.name} <strong class="text-amber-500">(${m.score})</strong>
+          </span>
+        `).join('');
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between border-b pb-3 mb-3">
+              <div class="flex items-center gap-2">
+                <div class="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 font-black text-base flex items-center justify-center shadow-inner">
+                  G${groupId}
+                </div>
+                <h3 class="font-black text-slate-800 text-lg">第 ${groupId} 小組</h3>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] text-slate-400 font-bold">總團隊星星</div>
+                <div class="font-display font-black text-2xl text-amber-500 flex items-center gap-1">
+                  <i class="fa-solid fa-star text-xl"></i> ${group.totalScore}
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <span class="text-xs font-bold text-slate-400">小組組員：</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${memberBadges || '<span class="text-xs text-slate-400">尚無組員</span>'}
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-100 flex gap-2">
+            <button onclick="rewardGroup(${groupId}, 1)" class="flex-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1">
+              <i class="fa-solid fa-plus text-sm"></i> 組員全員 +1
+            </button>
+            <button onclick="rewardGroup(${groupId}, 2)" class="flex-1 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1">
+              <i class="fa-solid fa-trophy text-sm"></i> 優勝小組 +2
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function renderRewards() {
+      const grid = document.getElementById('rewards-grid');
+      grid.innerHTML = '';
+
+      rewards.forEach(reward => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3 flex flex-col justify-between card-bounce';
+
+        card.innerHTML = `
+          <div>
+            <div class="text-5xl text-center my-3">${reward.icon}</div>
+            <h3 class="font-bold text-slate-800 text-base text-center">${reward.title}</h3>
+          </div>
+
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <div class="font-display font-black text-amber-500 text-lg flex items-center gap-1">
+              <i class="fa-solid fa-star text-base"></i> ${reward.cost} 星
+            </div>
+            <button onclick="redeemRewardModal(${reward.id})" class="bg-pink-50 hover:bg-pink-100 text-pink-700 font-bold px-3 py-1.5 rounded-xl text-xs transition-colors">
+              兌換卡片
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openFeedbackModal(studentId) {
+      selectedStudentId = studentId;
+      const student = students.find(s => s.id === studentId);
+      if (!student) return;
+
+      document.getElementById('modal-avatar').innerText = student.id < 10 ? `0${student.id}` : student.id;
+      document.getElementById('modal-title').innerText = student.name;
+      document.getElementById('modal-current-score').innerText = student.score;
+      document.getElementById('modal-subject').innerText = currentSubject;
+
+      document.getElementById('feedback-modal').classList.remove('hidden');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+
+    function applyScore(points, reason, type) {
+      if (!selectedStudentId) return;
+      const student = students.find(s => s.id === selectedStudentId);
+      if (student) {
+        student.score = Math.max(0, student.score + points);
+        student.subjectScores = student.subjectScores || {};
+        student.subjectScores[currentSubject] = Math.max(0, (student.subjectScores[currentSubject] || 0) + points);
+        saveData();
+        renderStudents();
+
+        if (type === 'reward' || points > 0) {
+          playRewardSound();
+          confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } });
+        } else {
+          playEncourageSound();
+        }
+
+        closeModal('feedback-modal');
+      }
+    }
+
+    function applyCustomScore() {
+      const val = parseInt(document.getElementById('custom-score-input').value);
+      if (!isNaN(val)) {
+        applyScore(val, '自訂分數', val >= 0 ? 'reward' : 'encourage');
+        document.getElementById('custom-score-input').value = '';
+      }
+    }
+
+    function rewardGroup(groupId, points) {
+      students.forEach(s => {
+        if (s.group === groupId) {
+          s.score = Math.max(0, s.score + points);
+        }
+      });
+      saveData();
+      renderGroups();
+      renderStudents();
+      playRewardSound();
+      confetti({ particleCount: 40, spread: 70, origin: { y: 0.6 } });
+    }
+
+    function rewardAllGroups() {
+      students.forEach(s => s.score += 1);
+      saveData();
+      renderGroups();
+      renderStudents();
+      playRewardSound();
+      confetti({ particleCount: 80, spread: 100, origin: { y: 0.5 } });
+    }
+
+    function openClassActionModal() {
+      document.getElementById('class-action-modal').classList.remove('hidden');
+    }
+
+    function applyClassScore(points, reason) {
+      students.forEach(s => s.score = Math.max(0, s.score + points));
+      saveData();
+      renderStudents();
+      closeModal('class-action-modal');
+
+      if (points > 0) {
+        playRewardSound();
+        confetti({ particleCount: 60, spread: 80 });
+      } else {
+        playEncourageSound();
+      }
+    }
+
+    function resetClassPoints() {
+      if (confirm('確定要將全班同學的星星點數歸零重置嗎？')) {
+        students.forEach(s => { s.score = 0; s.subjectScores = {}; });
+        saveData();
+        renderStudents();
+      }
+    }
+
+    function openAddStudentModal() {
+      document.getElementById('add-student-modal').classList.remove('hidden');
+    }
+
+    function saveNewStudent() {
+      const id = parseInt(document.getElementById('new-student-id').value);
+      const name = document.getElementById('new-student-name').value.trim();
+      const group = parseInt(document.getElementById('new-student-group').value);
+
+      if (!id || !name) {
+        alert('請填寫完整座號與姓名');
+        return;
+      }
+
+      students.push({
+        id: id,
+        name: name,
+        group: group,
+        score: 0,
+        avatar: Math.random() > 0.5 ? '👦' : '👧'
+      });
+
+      saveData();
+      renderStudents();
+      updateAIStudentDropdown();
+      closeModal('add-student-modal');
+    }
+
+    function openAddRewardModal() {
+      document.getElementById('add-reward-modal').classList.remove('hidden');
+    }
+
+    function saveNewReward() {
+      const title = document.getElementById('new-reward-title').value.trim();
+      const icon = document.getElementById('new-reward-icon').value.trim() || '🎁';
+      const cost = parseInt(document.getElementById('new-reward-cost').value);
+
+      if (!title || isNaN(cost)) {
+        alert('請填寫完整名稱與星星費用');
+        return;
+      }
+
+      rewards.push({
+        id: Date.now(),
+        title: title,
+        icon: icon,
+        cost: cost
+      });
+
+      saveData();
+      renderRewards();
+      closeModal('add-reward-modal');
+    }
+
+    function redeemRewardModal(rewardId) {
+      const reward = rewards.find(r => r.id === rewardId);
+      if (!reward) return;
+
+      const studentName = prompt(`要為哪位學生兌換「${reward.title}」（需 ${reward.cost} 星）？請輸入座號或姓名：`);
+      if (!studentName) return;
+
+      const student = students.find(s => s.name === studentName || s.id.toString() === studentName);
+      if (!student) {
+        alert('找不到該位學生！');
+        return;
+      }
+
+      if (student.score < reward.cost) {
+        alert(`【${student.name}】的星星不足！當前僅有 ${student.score} 星，還差 ${reward.cost - student.score} 星。`);
+        return;
+      }
+
+      student.score -= reward.cost;
+      saveData();
+      renderStudents();
+      renderRewards();
+      playRewardSound();
+      alert(`🎉 兌換成功！【${student.name}】已成功兌換「${reward.title}」，剩餘 ${student.score} 星。`);
+    }
+
+    // --- TOOL 1: TIMER ---
+    function setTimerPreset(mins) {
+      if (isTimerRunning) clearInterval(timerInterval);
+      isTimerRunning = false;
+      timerSeconds = mins * 60;
+      updateTimerDisplay();
+      document.getElementById('timer-status').innerText = '準備中';
+      document.getElementById('timer-start-btn').innerHTML = '<i class="fa-solid fa-play"></i> 開始計時';
+    }
+
+    function updateTimerDisplay() {
+      const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+      const s = (timerSeconds % 60).toString().padStart(2, '0');
+      document.getElementById('timer-display').innerText = `${m}:${s}`;
+    }
+
+    function toggleTimer() {
+      if (isTimerRunning) {
+        clearInterval(timerInterval);
+        isTimerRunning = false;
+        document.getElementById('timer-status').innerText = '已暫停';
+        document.getElementById('timer-start-btn').innerHTML = '<i class="fa-solid fa-play"></i> 繼續計時';
+      } else {
+        isTimerRunning = true;
+        document.getElementById('timer-status').innerText = '倒數中...';
+        document.getElementById('timer-start-btn').innerHTML = '<i class="fa-solid fa-pause"></i> 暫停計時';
+
+        timerInterval = setInterval(() => {
+          if (timerSeconds > 0) {
+            timerSeconds--;
+            updateTimerDisplay();
+          } else {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            document.getElementById('timer-status').innerText = '時間到！';
+            playRewardSound();
+            confetti({ particleCount: 50, spread: 80 });
+            alert('⏰ 課堂時間到囉！請大家安靜坐好～');
+          }
+        }, 1000);
+      }
+    }
+
+    function resetTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      isTimerRunning = false;
+      timerSeconds = 300;
+      updateTimerDisplay();
+      document.getElementById('timer-status').innerText = '準備中';
+      document.getElementById('timer-start-btn').innerHTML = '<i class="fa-solid fa-play"></i> 開始計時';
+    }
+
+    // --- TOOL 2: RANDOM PICKER ---
+    function pickRandomStudent() {
+      if (students.length === 0) return;
+
+      const display = document.getElementById('random-student-display');
+      let count = 0;
+      const maxRolls = 20;
+
+      const interval = setInterval(() => {
+        const randIndex = Math.floor(Math.random() * students.length);
+        const randStudent = students[randIndex];
+        display.innerText = `${randStudent.id}號 ${randStudent.name}`;
+        count++;
+
+        if (count >= maxRolls) {
+          clearInterval(interval);
+          playRewardSound();
+          confetti({ particleCount: 40, spread: 60 });
+        }
+      }, 80);
+    }
+
+    // --- TOOL 3: AI FEEDBACK GENERATOR (GEMINI API) ---
+    function updateAIStudentDropdown() {
+      const select = document.getElementById('ai-student-select');
+      if (!select) return;
+      select.innerHTML = '';
+      students.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = `${s.id}號 ${s.name}`;
+        opt.innerText = `${s.id}號 ${s.name} (累積 ${s.score} 星)`;
+        select.appendChild(opt);
+      });
+    }
+
+    async function generateAIFeedback() {
+      const studentInfo = document.getElementById('ai-student-select').value;
+      const tagInfo = document.getElementById('ai-tag-select').value;
+      const btn = document.getElementById('ai-generate-btn');
+      const resultBox = document.getElementById('ai-result-box');
+      const resultText = document.getElementById('ai-result-text');
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> AI 思考撰寫中...';
+      resultBox.classList.add('hidden');
+
+      const systemPrompt = "你是一位親切、充滿溫暖正向能量的國小低/中年級導師。請根據老師提供的學生特質與課堂表現，撰寫一段70字以內給國小學生或家長的溫馨課堂激勵評語。文字要充滿鼓勵與樂觀，切忌批評與強烈負面字眼，並包含對未來的期待。";
+      const userQuery = `請幫學生【${studentInfo}】撰寫課堂獎勵評語。今日課堂表現與觀察點是：【${tagInfo}】。`;
+
+      try {
+        const apiKey = ""; // Managed runtime API key
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] }
+          })
+        });
+
+        const data = await response.json();
+        const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (candidateText) {
+          resultText.innerText = candidateText;
+          resultBox.classList.remove('hidden');
+        } else {
+          resultText.innerText = `【${studentInfo}】今天在課堂上表現很努力！老師注意到你在「${tagInfo}」方面進步很大，繼續保持，你一定會越來越優秀！`;
+          resultBox.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+        resultText.innerText = `【${studentInfo}】今天課堂表現很棒！在「${tagInfo}」展現了極佳的態度，繼續加油！`;
+        resultBox.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-sparkles"></i> 一鍵生成親師激勵評語';
+      }
+    }
+
+    function copyAIFeedback() {
+      const text = document.getElementById('ai-result-text').innerText;
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      alert('📋 評語已成功複製到剪貼簿！');
+    }
+  </script>
+  <!-- 後台串接層（需放在主程式之後） -->
+  <script src="api.js"></script>
+</body>
+</html>
