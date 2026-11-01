@@ -1,5 +1,5 @@
 /* 後台串接層：載入於 index.html 主程式之後，覆寫原本 localStorage 版本的函式 */
-const API_URL = 'https://script.google.com/macros/s/AKfycbwo3LF53EDsv6-SEgnXx_RbdBCgfvjt1cM7z_Nse044o7wqizkjmb7oUAJuUlDDrbFL/exec'; // ← 貼上 Apps Script 部署後的「網頁應用程式網址」
+const API_URL = 'https://script.google.com/macros/s/AKfycbz_Zddj8UxVbklWSlmIMmF0d-YCnwTG9lKMbsX6PFYO3v3c8wtqRqK4_y0UiJneQBJI/exec'; // ← 貼上 Apps Script 部署後的「網頁應用程式網址」
 
 let sessionToken = sessionStorage.getItem('tk') || '';
 let saveTimer = null;
@@ -30,25 +30,38 @@ function toast(msg) {
 }
 
 /* ---------- 資料載入 ---------- */
-async function enterClass(name) {
-  const j = await api('getClass', { className: name });
-  currentClassName = name;
+function applyBootData(j) {
+  classesList = j.classes;
+  subjects = j.subjects;
+  if (!subjects.includes(currentSubject)) currentSubject = subjects[0];
+  renderSubjects();
+  currentClassName = j.current;
+  localStorage.setItem('classroom_current_class', currentClassName);
   students = j.students;
   rewards = j.rewards.length ? j.rewards : JSON.parse(JSON.stringify(defaultRewards));
   initClasses(); renderStudents(); renderGroups(); renderRewards(); updateAIStudentDropdown();
+  try { localStorage.setItem('boot_cache', JSON.stringify(j)); } catch (e) {}
+}
+
+function readBootCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem('boot_cache'));
+    return c && c.classes && c.classes.length ? c : null;
+  } catch (e) { return null; }
+}
+
+async function enterClass(name) {
+  const j = await api('getClass', { className: name });
+  applyBootData({ classes: classesList, subjects: subjects, current: name, students: j.students, rewards: j.rewards });
 }
 
 async function bootstrap() {
-  const j = await api('init');
-  classesList = j.classes;
-  subjects = j.subjects;                       // 科目清單改由試算表讀取
-  if (!subjects.includes(currentSubject)) currentSubject = subjects[0];
-  renderSubjects();
-  if (!classesList.length) {
+  let j = await api('boot', { className: currentClassName });
+  if (!j.classes.length) {
     await api('createClass', { name: '我的班級', count: 15 });
-    classesList = ['我的班級'];
+    j = await api('boot', { className: '我的班級' });
   }
-  await enterClass(classesList.includes(currentClassName) ? currentClassName : classesList[0]);
+  applyBootData(j);
 }
 
 function saveData() { // 取代 localStorage 版，0.6 秒防抖後同步到試算表
@@ -58,6 +71,10 @@ function saveData() { // 取代 localStorage 版，0.6 秒防抖後同步到試�
     students: JSON.parse(JSON.stringify(students)),
     rewards: JSON.parse(JSON.stringify(rewards))
   };
+  try { // 同步更新本機快取，重新整理時先顯示最新狀態
+    const c = readBootCache();
+    if (c && c.current === currentClassName) { c.students = snap.students; c.rewards = snap.rewards; localStorage.setItem('boot_cache', JSON.stringify(c)); }
+  } catch (e) {}
   saveTimer = setTimeout(() => api('saveClass', snap).catch(e => toast('⚠️ 同步失敗：' + e.message)), 600);
 }
 
@@ -68,11 +85,11 @@ async function handleLogin(e) {
   const pass = document.getElementById('auth-password').value;
   const err = document.getElementById('auth-error-msg');
   try {
-    const j = await api('login', { username: user, password: pass });
+    const j = await api('login', { username: user, password: pass, className: currentClassName });
     sessionToken = j.token;
     sessionStorage.setItem('tk', sessionToken);
     isAuthenticated = true;
-    await bootstrap();
+    if (j.classes && j.classes.length) applyBootData(j); else await bootstrap();
     document.getElementById('auth-modal').classList.add('hidden');
     err.classList.add('hidden');
     playRewardSound();
@@ -94,9 +111,12 @@ async function handleRegister(e) {
   if (user.length < 3) return showErr('帳號至少需要 3 個字元');
   if (pass.length < 4) return showErr('密碼至少需要 4 個字元');
   if (pass !== pass2) return showErr('兩次輸入的密碼不一致');
+  const question = document.getElementById('reg-question').value;
+  const answer = document.getElementById('reg-answer').value.trim();
+  if (answer.length < 2) return showErr('請設定安全問題的答案（至少 2 個字）');
   try {
-    await api('register', { username: user, password: pass });
-    ['reg-username', 'reg-password', 'reg-password2'].forEach(id => document.getElementById(id).value = '');
+    await api('register', { username: user, password: pass, question, answer });
+    ['reg-username', 'reg-password', 'reg-password2', 'reg-answer'].forEach(id => document.getElementById(id).value = '');
     showLoginForm();
     document.getElementById('auth-username').value = user;
     document.getElementById('auth-password').value = pass;
@@ -107,8 +127,64 @@ async function handleRegister(e) {
   }
 }
 
+/* ---------- 表單切換 / 忘記密碼 ---------- */
+const AUTH_FORMS = ['login-form', 'register-form', 'reset-form'];
+function showAuthForm(id, title, desc) {
+  AUTH_FORMS.forEach(f => document.getElementById(f).classList.toggle('hidden', f !== id));
+  document.getElementById('auth-title').innerText = title;
+  document.getElementById('auth-desc').innerText = desc;
+}
+function showLoginForm() {
+  showAuthForm('login-form', '教師身份驗證', '請輸入教師帳號密碼以解鎖「星星班級加分王」');
+}
+function showRegisterForm() {
+  document.getElementById('reg-error-msg').classList.add('hidden');
+  showAuthForm('register-form', '建立教師帳號', '設定專屬帳號密碼，保護您的班級資料');
+}
+function showResetForm() {
+  document.getElementById('reset-step2').classList.add('hidden');
+  document.getElementById('reset-error-msg').classList.add('hidden');
+  document.getElementById('reset-username').value = document.getElementById('auth-username').value;
+  showAuthForm('reset-form', '忘記密碼', '密碼無法直接查看，請回答安全問題後重新設定');
+}
+function resetErr(msg) {
+  const b = document.getElementById('reset-error-msg');
+  b.innerText = '⚠️ ' + msg;
+  b.classList.remove('hidden');
+  playEncourageSound();
+}
+async function handleGetQuestion() {
+  const u = document.getElementById('reset-username').value.trim();
+  if (!u) return resetErr('請先輸入教師帳號');
+  try {
+    const j = await api('getQuestion', { username: u });
+    document.getElementById('reset-question').innerText = j.question;
+    document.getElementById('reset-error-msg').classList.add('hidden');
+    document.getElementById('reset-step2').classList.remove('hidden');
+  } catch (e) { resetErr(e.message); }
+}
+async function handleResetPassword(e) {
+  if (e) e.preventDefault();
+  if (document.getElementById('reset-step2').classList.contains('hidden')) return handleGetQuestion();
+  const u = document.getElementById('reset-username').value.trim();
+  const answer = document.getElementById('reset-answer').value;
+  const np = document.getElementById('reset-pass').value;
+  if (np.length < 4) return resetErr('新密碼至少需要 4 個字元');
+  if (np !== document.getElementById('reset-pass2').value) return resetErr('兩次輸入的新密碼不一致');
+  try {
+    await api('resetPassword', { username: u, answer, newPassword: np });
+    ['reset-answer', 'reset-pass', 'reset-pass2'].forEach(id => document.getElementById(id).value = '');
+    showLoginForm();
+    document.getElementById('auth-username').value = u;
+    document.getElementById('auth-password').value = '';
+    playRewardSound();
+    alert('✅ 密碼已重設，請使用新密碼登入。');
+  } catch (ex) { resetErr(ex.message); }
+}
+
 function logoutTeacher() {
   sessionStorage.removeItem('tk');
+  localStorage.removeItem('boot_cache');
   location.reload();
 }
 
@@ -186,7 +262,13 @@ window.onload = async function () {
   document.getElementById('auth-password').placeholder = '請輸入密碼';
   document.querySelectorAll('#auth-modal .border-t')[0]?.classList.add('hidden');
 
-  if (!sessionToken) return;
+  if (!sessionToken) { localStorage.removeItem('boot_cache'); return; }
+  const cached = readBootCache();   // 先用快取立即顯示，再於背景向試算表更新
+  if (cached) {
+    applyBootData(cached);
+    isAuthenticated = true;
+    document.getElementById('auth-modal').classList.add('hidden');
+  }
   try {
     await bootstrap();
     isAuthenticated = true;
@@ -194,5 +276,7 @@ window.onload = async function () {
   } catch (e) {
     sessionToken = '';
     sessionStorage.removeItem('tk');
+    localStorage.removeItem('boot_cache');
+    document.getElementById('auth-modal').classList.remove('hidden');
   }
 };
